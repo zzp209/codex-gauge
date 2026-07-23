@@ -8,6 +8,12 @@ let package = Package(
         .executableTarget(
             name: "CodexGauge",
             path: "Sources/CodexGauge"
+        ),
+        .testTarget(
+            name: "CodexGaugeTests",
+            dependencies: ["CodexGauge"],
+            path: "Tests/CodexGaugeTests",
+            resources: [.process("Fixtures")]
         )
     ]
 )

@@ -14,7 +14,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp -f "$BIN" "$APP/Contents/MacOS/CodexGauge"
 cp -f Info.plist "$APP/Contents/Info.plist"
 [ -f AppIcon.icns ] && cp -f AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+xattr -cr "$APP"
+codesign --force --deep --sign - "$APP" >/dev/null
 echo "▸ built ./$APP"
 
 if [ "$1" = "run" ]; then

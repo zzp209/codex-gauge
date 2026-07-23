@@ -15,7 +15,7 @@
   <img src="docs/demo.gif" width="430" alt="Codex Gauge popover — the two usage rings drawing in">
 </p>
 
-A tiny native **macOS menu-bar app** that shows your **Codex (ChatGPT) usage** — the 5-hour window and the weekly window — as live gauges, with reset countdowns and low-quota alerts.
+A tiny native **macOS menu-bar app** that shows the **Codex (ChatGPT) usage windows actually present in your local snapshot** — including 5-hour and weekly windows — with reset countdowns, freshness, pace guidance, and utilization alerts.
 
 ## Why it's different
 
@@ -23,7 +23,7 @@ Most usage trackers **poll an API** on a timer. That spends requests, can trip r
 
 > ### A usage meter that doesn't consume usage.
 
-It never touches your token, works even when the Codex app is closed, and the whole thing is a ~400-line local file read you can audit.
+It never touches your token and can keep showing the last trusted snapshot when the Codex app is closed. Snapshot age is always visible so an old value is never presented as live.
 
 ## vs. Codex's own usage display
 
@@ -37,11 +37,15 @@ It never touches your token, works even when the Codex app is closed, and the wh
 
 ## Features
 
-- **◔ Live gauges** for the 5-hour and weekly windows, with "resets in 2h 14m" countdowns.
-- **🔔 Low-quota alerts** — a system notification when either window drops below your threshold.
-- **⚙️ Settings** — Codex path, refresh interval, alert threshold.
-- **⚡ Optional "force refresh"** — off by default. It's the *only* thing that ever spends a sliver of quota (it asks Codex for a fresh number), and it's clearly labeled. Everyone else stays 100% free.
-- **🔒 100% local** — no API calls, never reads your token, MIT licensed.
+- **◔ Accurate window gauges** classified by `window_minutes`, rather than assuming `primary` always means 5 hours.
+- **⏱ Live reset countdowns** plus the exact local reset time.
+- **🎯 Pace guidance** compares remaining quota with remaining time and highlights balanced, under-used, waste-risk, and quota-tight states.
+- **🔔 Utilization reminders** for quota likely to expire unused, low quota far from reset, and an optional daily pace check. Stale snapshots never notify.
+- **🧭 Automatic menu-bar metric** shows the window that currently needs attention most, or lets you pin the 5-hour or weekly window.
+- **🕘 Snapshot freshness** distinguishes fresh, aging, stale, and expired-window data.
+- **📈 Sanitized 24-hour trend** stores only time, window type, reset cycle, and remaining percentage; session paths and chat content are never written to history.
+- **⚙️ Local settings** for the sessions path, refresh interval, notification policy, menu metric, language, and launch at login.
+- **🔒 100% local monitoring** — no automatic network calls and never reads your token.
 
 ## Install
 
@@ -71,17 +75,19 @@ Every Codex API response carries your current rate-limit state, and the Codex CL
     "plan_type": "prolite" } }
 ```
 
-`primary` is the 5-hour rolling window, `secondary` is the weekly window. Codex Gauge finds the newest session log, reads the last `rate_limits` block, and shows `100 − used_percent` as "remaining." That's the whole thing — a local file read. The numbers refresh for free whenever Codex actually runs.
+Codex Gauge classifies each window from `window_minutes` (`300` for 5 hours and `10080` for a week), filters out unrelated limit families such as Spark, finds the newest main-Codex event across recent session logs, and clamps `100 − used_percent` to `0...100`. It only renders windows that are actually present in that event.
 
-**Freshness:** the snapshot is from the last time Codex ran. If you haven't used Codex in a while it reads older — but if Codex isn't running, your quota isn't moving either. If you genuinely need an up-to-the-second value, enable **force refresh** in Settings (it spends a tiny bit of quota by asking Codex once).
+**Freshness:** this is a snapshot from the last Codex response written to disk. Time-based resets continue even while Codex is closed, so the app marks aging/stale/expired data clearly and waits for a new trusted snapshot instead of silently treating it as current. “Refresh” only re-reads local files; it does not invoke Codex or spend quota.
+
+**Banked reset cards:** their count and expiry are not included in local session logs. Codex Gauge does not guess or scrape authenticated account data automatically. The popover provides an explicit link to the official Codex usage dashboard when you want to check them.
 
 ## Prefer a menu-bar-script setup?
 
-There's also a zero-dependency **SwiftBar / xbar plugin** in [`swiftbar/`](swiftbar/) — same local data source, ~80 lines of Python, if you'd rather not run a standalone app.
+There's also a zero-dependency **SwiftBar / xbar plugin** in [`swiftbar/`](swiftbar/) using the same semantic window classification and main-Codex filtering, if you'd rather not run a standalone app.
 
 ## Privacy & safety
 
-- **No network.** The app never calls any API or endpoint (except the opt-in force refresh, which runs the Codex CLI itself).
+- **No automatic network.** Monitoring and refresh only read local files. The official usage dashboard opens only when you click its button.
 - **No credentials.** It never reads `~/.codex/auth.json` or any token.
 - **Local only.** It reads session-log files you already have. Nothing leaves your machine.
 

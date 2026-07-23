@@ -9,8 +9,16 @@
 # SwiftBar plugin (also works in xbar). Filename "*.1m.py" => refresh every 60s,
 # which is just a cheap local file read. Manual "refresh" in the menu re-reads too.
 #
-# https://github.com/ruby1304/codex-gauge   ·   MIT
-import json, glob, os, time
+# MIT
+import time
+from datetime import datetime, timezone
+
+from codex_gauge_core import (
+    load_latest_snapshot,
+    pace_status,
+    parse_timestamp,
+    select_menu_window,
+)
 
 # Status palette only (Smartisan OS: color encodes status, never decoration).
 GOOD, WARN, BAD = "#0e8a4f", "#c98a14", "#e0411b"   # green / amber / accent-red
@@ -37,103 +45,80 @@ def bar(rem, n=10):
     f = max(0, min(n, int(round(rem / 100 * n))))
     return "▰" * f + "▱" * (n - f)
 
-def _find_rl(o):
-    if isinstance(o, dict):
-        rl = o.get("rate_limits")
-        if isinstance(rl, dict) and ("primary" in rl or "secondary" in rl):
-            return rl
-        for v in o.values():
-            r = _find_rl(v)
-            if r:
-                return r
-    elif isinstance(o, list):
-        for v in o:
-            r = _find_rl(v)
-            if r:
-                return r
-    return None
-
-def latest_rate_limits():
-    base = os.path.expanduser("~/.codex/sessions")
-    files = sorted(glob.glob(os.path.join(base, "**", "rollout-*.jsonl"), recursive=True),
-                   key=os.path.getmtime, reverse=True)
-    for f in files[:8]:
-        found = None
-        try:
-            with open(f) as fh:
-                for line in fh:
-                    if '"rate_limits"' in line:
-                        try:
-                            r = _find_rl(json.loads(line))
-                            if r:
-                                found = r
-                        except Exception:
-                            pass
-        except Exception:
-            continue
-        if found:
-            return found, (time.time() - os.path.getmtime(f)) / 60
-    return None, None
-
-def remaining(w):
-    if not isinstance(w, dict):
-        return None
-    for k in ("used_percent", "used_percentage", "utilization"):
-        v = w.get(k)
-        if isinstance(v, (int, float)):
-            return 100 - v
-    return None
-
 def reset_str(w):
-    if not isinstance(w, dict):
-        return ""
     ra = w.get("resets_at")
     if not ra:
         return ""
     t = time.localtime(ra)
     return f"{t.tm_mon}/{t.tm_mday} {t.tm_hour:02d}:{t.tm_min:02d}"
 
-def ago(mins):
-    if mins is None:
+def ago(timestamp):
+    event = parse_timestamp(timestamp)
+    if event is None:
         return "—"
+    mins = max(0, (datetime.now(timezone.utc) - event).total_seconds() / 60)
     if mins < 60:
         return f"{mins:.0f} 分钟前"
     if mins < 1440:
         return f"{mins / 60:.0f} 小时前"
     return f"{mins / 1440:.0f} 天前"
 
-rl, age = latest_rate_limits()
-p5 = remaining(rl.get("primary")) if rl else None
-pw = remaining(rl.get("secondary")) if rl else None
-plan = (rl or {}).get("plan_type", "")
+def window_label(window):
+    kind = window.get("kind")
+    if kind == "five_hour":
+        return "5 小时窗"
+    if kind == "weekly":
+        return "本周窗"
+    minutes = window.get("window_minutes")
+    if isinstance(minutes, int):
+        return f"{minutes} 分钟窗"
+    return "额度窗"
 
-# ---- menu-bar title: weekly fill-glyph + %, calm by default, colored only when low ----
-title_rem = pw if pw is not None else p5
-mins = [x for x in (p5, pw) if x is not None]
-tcolor = status_color(min(mins)) if mins else None
+def pace_label(window):
+    labels = {
+        "quota_tight": "额度紧张",
+        "waste_risk": "即将浪费",
+        "use_more": "建议加快使用",
+        "ahead": "使用偏快",
+        "balanced": "节奏正常",
+        "expired": "等待新快照",
+        "unknown": "节奏未知",
+    }
+    return labels[pace_status(window)]
+
+snapshot = load_latest_snapshot()
+windows = snapshot.get("windows", []) if snapshot else []
+selected = select_menu_window(windows)
+plan = (snapshot or {}).get("plan_type") or ""
+
+# ---- menu-bar title: automatically show the window needing attention most ----
+title_rem = selected.get("remaining") if selected else None
+tcolor = status_color(title_rem)
 if title_rem is None:
     print("◌ codex")
 else:
-    seg = f"{glyph(title_rem)} {title_rem:.0f}%"
+    prefix = "周" if selected.get("kind") == "weekly" else ""
+    seg = f"{glyph(title_rem)} {prefix}{title_rem:.0f}%"
     print(seg + (f" | color={tcolor}" if tcolor in (WARN, BAD) else ""))
 print("---")
 
-if rl is None:
+if snapshot is None:
     print("还没读到额度 | size=12")
     print("跑过一次 codex 之后就有了 | size=11")
 else:
     print(f"Codex 用量{(' · ' + plan) if plan else ''} | size=12")
-    print(f"快照 {ago(age)} | size=11")
+    print(f"快照 {ago(snapshot.get('timestamp'))} | size=11")
     print("---")
-    for label, p, w in (("5 小时窗", p5, rl.get("primary")),
-                        ("本周窗", pw, rl.get("secondary"))):
+    for w in windows:
+        label = window_label(w)
+        p = w.get("remaining")
         c = status_color(p)
         col = f" color={c}" if c else ""
         ps = f"{p:.0f}%" if p is not None else "—"
         rs = reset_str(w)
         print(f"{glyph(p)}  {label}   剩 {ps}   ·   {rs} 重置 | size=13{col}")
         print(f"      {bar(p)} | font=Menlo size=12{col}")
+        print(f"      {pace_label(w)} | size=10{col}")
 print("---")
 print("↻ 刷新（重读本地 · 免费） | refresh=true size=12")
-print("codex-gauge · GitHub | href=https://github.com/ruby1304/codex-gauge size=11")
 print("零消耗:只读本地 session 文件,不碰任何 API / token | size=10")

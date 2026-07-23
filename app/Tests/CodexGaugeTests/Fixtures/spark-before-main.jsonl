@@ -1,0 +1,2 @@
+{"timestamp":"2026-07-23T10:16:40Z","payload":{"rate_limits":{"limit_id":"codex","primary":{"used_percent":40.0,"window_minutes":10080,"resets_at":1785287160}}}}
+{"timestamp":"2026-07-23T10:16:50Z","payload":{"rate_limits":{"limit_id":"codex_bengalfox","limit_name":"GPT-5.3-Codex-Spark","primary":{"used_percent":0.0,"window_minutes":300,"resets_at":1785300000}}}}
