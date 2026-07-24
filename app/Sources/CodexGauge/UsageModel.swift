@@ -196,8 +196,12 @@ final class UsageModel {
         }
         do {
             let value = try await provider.latestSnapshot(path: Prefs.codexPath)
-            snapshot = value
             lastError = nil
+            if let snapshot,
+               value.source.eventTimestamp < snapshot.source.eventTimestamp {
+                return
+            }
+            snapshot = value
             let now = Date()
             await updateHistory(with: value, now: now)
             checkNotifications(now: now)

@@ -16,9 +16,15 @@ actor SessionLogReader: UsageSnapshotProviding {
         let event: RateLimitEvent?
     }
 
+    private struct LocatedEvent {
+        let candidate: Candidate
+        let event: RateLimitEvent
+    }
+
     private let fileManager: FileManager
     private let chunkSize = 1_048_576
     private let maximumCarriedLineSize = 1_048_576
+    private let fileTimestampTolerance: TimeInterval = 60
     private var cache: [URL: CachedEvent] = [:]
 
     init(fileManager: FileManager = .default) {
@@ -43,21 +49,38 @@ actor SessionLogReader: UsageSnapshotProviding {
             throw UsageDataError.noSessionFiles
         }
 
+        var latest: LocatedEvent?
         for candidate in candidates {
-            if let event = try latestMainEvent(in: candidate) {
-                return UsageSnapshot(
-                    planType: event.planType,
-                    windows: event.windows,
-                    credits: event.credits,
-                    source: SnapshotSource(
-                        sessionFile: candidate.url,
-                        eventTimestamp: event.timestamp,
-                        fileModificationDate: candidate.modificationDate
-                    )
-                )
+            if let latest,
+               candidate.modificationDate.addingTimeInterval(
+                fileTimestampTolerance
+               ) < latest.event.timestamp {
+                break
+            }
+            guard let event = try latestMainEvent(in: candidate) else {
+                continue
+            }
+            if let current = latest {
+                if event.timestamp > current.event.timestamp {
+                    latest = LocatedEvent(candidate: candidate, event: event)
+                }
+            } else {
+                latest = LocatedEvent(candidate: candidate, event: event)
             }
         }
-        throw UsageDataError.noRateLimitEvents
+        guard let latest else {
+            throw UsageDataError.noRateLimitEvents
+        }
+        return UsageSnapshot(
+            planType: latest.event.planType,
+            windows: latest.event.windows,
+            credits: latest.event.credits,
+            source: SnapshotSource(
+                sessionFile: latest.candidate.url,
+                eventTimestamp: latest.event.timestamp,
+                fileModificationDate: latest.candidate.modificationDate
+            )
+        )
     }
 
     private func newestSessionFiles(in directory: URL) throws -> [Candidate] {

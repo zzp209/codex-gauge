@@ -2,6 +2,36 @@ import XCTest
 @testable import CodexGauge
 
 final class SessionLogReaderTests: XCTestCase {
+    func testChoosesNewestEventTimestampAcrossFilesInsteadOfNewestModifiedFile() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let newerEvent = directory.appendingPathComponent("rollout-newer-event.jsonl")
+        let newerFile = directory.appendingPathComponent("rollout-newer-file.jsonl")
+        try fixture("current-weekly-only")
+            .write(to: newerEvent, atomically: true, encoding: .utf8)
+        try fixture("legacy-dual-window")
+            .write(to: newerFile, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 1_800_000_000)],
+            ofItemAtPath: newerEvent.path
+        )
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date(timeIntervalSince1970: 1_900_000_000)],
+            ofItemAtPath: newerFile.path
+        )
+
+        let snapshot = try await SessionLogReader().latestSnapshot(path: directory.path)
+
+        XCTAssertEqual(snapshot.windows.count, 1)
+        XCTAssertEqual(snapshot.windows[0].kind, .weekly)
+        XCTAssertEqual(snapshot.windows[0].remainingPercent, 51)
+        XCTAssertEqual(
+            snapshot.source.sessionFile.lastPathComponent,
+            "rollout-newer-event.jsonl"
+        )
+    }
+
     func testFindsMainSnapshotWhenNewestFileOnlyContainsSparkLimit() async throws {
         let directory = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

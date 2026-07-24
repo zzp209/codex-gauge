@@ -58,6 +58,37 @@ final class UsageModelTests: XCTestCase {
         XCTAssertEqual(points.first?.kindKey, "weekly")
     }
 
+    func testRefreshNowDoesNotReplaceSnapshotWithOlderEvent() async {
+        let now = Date()
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("history-v1.json")
+        defer {
+            try? FileManager.default.removeItem(
+                at: fileURL.deletingLastPathComponent()
+            )
+        }
+        let newer = makeSnapshot(
+            eventTimestamp: now,
+            resetsAt: now.addingTimeInterval(5 * 86_400)
+        )
+        let older = makeSnapshot(
+            eventTimestamp: now.addingTimeInterval(-60),
+            resetsAt: now.addingTimeInterval(5 * 86_400)
+        )
+        let model = UsageModel(
+            provider: SequenceProvider(snapshots: [newer, older]),
+            historyStore: SnapshotHistoryStore(fileURL: fileURL),
+            autoStart: false
+        )
+
+        await model.refreshNow()
+        await model.refreshNow()
+
+        XCTAssertEqual(model.snapshot, newer)
+        XCTAssertNil(model.lastError)
+    }
+
     private func makeSnapshot(
         eventTimestamp: Date,
         resetsAt: Date
@@ -100,5 +131,20 @@ private actor FixedProvider: UsageSnapshotProviding {
 
     func latestSnapshot(path: String) async throws -> UsageSnapshot {
         snapshot
+    }
+}
+
+private actor SequenceProvider: UsageSnapshotProviding {
+    var snapshots: [UsageSnapshot]
+
+    init(snapshots: [UsageSnapshot]) {
+        self.snapshots = snapshots
+    }
+
+    func latestSnapshot(path: String) async throws -> UsageSnapshot {
+        guard !snapshots.isEmpty else {
+            throw UsageDataError.noRateLimitEvents
+        }
+        return snapshots.removeFirst()
     }
 }
