@@ -1,6 +1,7 @@
 .DS_Store
 .build/
 **/.build/
+.worktrees/
 CodexGauge.app/
 app/icon/AppIcon.iconset/
 dist/
