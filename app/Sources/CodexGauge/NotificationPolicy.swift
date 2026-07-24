@@ -15,7 +15,67 @@ struct QuotaNotification: Equatable, Sendable {
     let dedupeKey: String
 }
 
+struct ReminderPreferences: Equatable, Sendable {
+    let quotaTight: Bool
+    let wasteRisk: Bool
+    let dailyPace: Bool
+    let dailyHour: Int
+}
+
 enum NotificationPolicy {
+    static func notifications(
+        window: UsageWindowSnapshot,
+        evaluation: UsagePaceEvaluation,
+        freshness: SnapshotFreshness,
+        now: Date,
+        sentKeys: Set<String>,
+        preferences: ReminderPreferences
+    ) -> [QuotaNotification] {
+        let eventNotifications = pendingNotifications(
+            window: window,
+            evaluation: evaluation,
+            freshness: freshness,
+            now: now,
+            sentKeys: sentKeys
+        ).filter { notification in
+            switch notification.kind {
+            case .quotaTight:
+                preferences.quotaTight
+            case .waste48Hours, .waste24Hours, .waste6Hours:
+                preferences.wasteRisk
+            case .dailyPace:
+                false
+            }
+        }
+        if !eventNotifications.isEmpty {
+            return eventNotifications
+        }
+        guard preferences.dailyPace,
+              isDailyReminderTime(
+                now: now,
+                hour: preferences.dailyHour
+              ),
+              let daily = dailyNotification(
+                window: window,
+                evaluation: evaluation,
+                freshness: freshness,
+                now: now,
+                sentKeys: sentKeys
+              )
+        else {
+            return []
+        }
+        return [daily]
+    }
+
+    static func isDailyReminderTime(
+        now: Date,
+        hour: Int,
+        calendar: Calendar = .current
+    ) -> Bool {
+        calendar.component(.hour, from: now) >= min(23, max(0, hour))
+    }
+
     static func pendingNotifications(
         window: UsageWindowSnapshot,
         evaluation: UsagePaceEvaluation,
@@ -80,8 +140,10 @@ enum NotificationPolicy {
         sentKeys: Set<String>
     ) -> QuotaNotification? {
         guard freshness == .fresh,
+              window.kind == .weekly,
               evaluation.status == .useMore || evaluation.status == .wasteRisk,
-              let resetsAt = window.resetsAt
+              let resetsAt = window.resetsAt,
+              resetsAt > now
         else { return nil }
         let day = Calendar.current.startOfDay(for: now).timeIntervalSince1970
         let key = "\(window.kind.key)|\(Int(resetsAt.timeIntervalSince1970))|daily|\(Int(day))"

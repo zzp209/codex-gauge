@@ -4,6 +4,117 @@ import XCTest
 final class NotificationPolicyTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
+    func testTightQuotaReminderCanBeDisabledIndependently() {
+        let window = makeWindow(remaining: 8, hoursToReset: 72)
+        let notifications = NotificationPolicy.notifications(
+            window: window,
+            evaluation: .init(
+                status: .quotaTight,
+                timeRemainingPercent: 40,
+                paceGap: -32,
+                recommendedPointsPerHour: nil,
+                recommendedPointsPerDay: nil
+            ),
+            freshness: .fresh,
+            now: now,
+            sentKeys: [],
+            preferences: ReminderPreferences(
+                quotaTight: false,
+                wasteRisk: true,
+                dailyPace: false,
+                dailyHour: 17
+            )
+        )
+
+        XCTAssertTrue(notifications.isEmpty)
+    }
+
+    func testEventReminderTakesPriorityOverDailySummary() {
+        let window = makeWindow(remaining: 30, hoursToReset: 20)
+        let notifications = NotificationPolicy.notifications(
+            window: window,
+            evaluation: UsagePaceEvaluator.evaluate(window, now: now),
+            freshness: .fresh,
+            now: now,
+            sentKeys: [],
+            preferences: ReminderPreferences(
+                quotaTight: true,
+                wasteRisk: true,
+                dailyPace: true,
+                dailyHour: 0
+            )
+        )
+
+        XCTAssertEqual(notifications.map(\.kind), [.waste24Hours])
+    }
+
+    func testDailyReminderUsesConfiguredLocalHour() {
+        let calendar = Calendar.current
+        let before = calendar.date(
+            from: DateComponents(
+                year: 2027,
+                month: 1,
+                day: 15,
+                hour: 19,
+                minute: 59
+            )
+        )!
+        let atTime = calendar.date(
+            from: DateComponents(
+                year: 2027,
+                month: 1,
+                day: 15,
+                hour: 20
+            )
+        )!
+
+        XCTAssertFalse(
+            NotificationPolicy.isDailyReminderTime(
+                now: before,
+                hour: 20
+            )
+        )
+        XCTAssertTrue(
+            NotificationPolicy.isDailyReminderTime(
+                now: atTime,
+                hour: 20
+            )
+        )
+    }
+
+    func testDailySummaryDoesNotDuplicateForFiveHourWindow() {
+        let window = UsageWindowSnapshot(
+            id: "five-hour",
+            kind: .fiveHour,
+            limitID: "codex",
+            limitName: nil,
+            remainingPercent: 80,
+            windowMinutes: 300,
+            resetsAt: now.addingTimeInterval(4 * 3_600)
+        )
+        let notifications = NotificationPolicy.notifications(
+            window: window,
+            evaluation: .init(
+                status: .useMore,
+                timeRemainingPercent: 80,
+                paceGap: 0,
+                recommendedPointsPerHour: 5,
+                recommendedPointsPerDay: nil
+            ),
+            freshness: .fresh,
+            now: now,
+            sentKeys: [],
+            preferences: ReminderPreferences(
+                quotaTight: true,
+                wasteRisk: true,
+                dailyPace: true,
+                dailyHour: 0
+            )
+        )
+
+        XCTAssertTrue(notifications.isEmpty)
+    }
+
     func testNoNotificationForAgingSnapshot() {
         let notifications = NotificationPolicy.pendingNotifications(
             window: makeWindow(remaining: 40, hoursToReset: 20),

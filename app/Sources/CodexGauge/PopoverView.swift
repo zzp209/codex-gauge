@@ -147,15 +147,17 @@ struct PopoverView: View {
     private var accountFooter: some View {
         HStack(spacing: 10) {
             Button {
-                NSWorkspace.shared.open(
-                    URL(string: "https://chatgpt.com/codex/settings/usage")!
-                )
+                UsageDestinationLauncher.openPreferred()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "arrow.counterclockwise.circle")
+                    Image(systemName: "arrow.up.forward.app")
                     Text(t(
-                        "Banked resets require the official usage page",
-                        "重置卡数量和到期时间需查看官方用量页"
+                        UsageDestinationLauncher.isCockpitToolsInstalled
+                            ? "View reset cards and expiry in Cockpit Tools"
+                            : "View reset cards and expiry on the usage page",
+                        UsageDestinationLauncher.isCockpitToolsInstalled
+                            ? "在 Cockpit Tools 查看重置卡和到期时间"
+                            : "在官方用量页查看重置卡和到期时间"
                     ))
                     Spacer(minLength: 4)
                     Image(systemName: "chevron.right")

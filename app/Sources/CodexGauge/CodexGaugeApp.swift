@@ -12,7 +12,7 @@ final class CodexGaugeDelegate:
 
     private var statusItem: NSStatusItem?
     private(set) var popover: NSPopover?
-    private var settingsWindow: NSWindow?
+    private(set) var settingsWindow: NSWindow?
     private var statusTimer: Timer?
     private var statusCache = StatusPresentationCache()
 
@@ -140,7 +140,8 @@ final class CodexGaugeDelegate:
         }
     }
 
-    private func showPopover(relativeTo button: NSStatusBarButton? = nil) {
+    func showPopover(relativeTo button: NSStatusBarButton? = nil) {
+        settingsWindow?.orderOut(nil)
         guard let button = button ?? statusItem?.button, let popover else {
             return
         }
@@ -155,20 +156,31 @@ final class CodexGaugeDelegate:
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func showSettings() {
+    func showSettings() {
         if settingsWindow == nil {
-            let controller = NSHostingController(
-                rootView: SettingsView(model: model)
+            let window = NSWindow(
+                contentRect: NSRect(
+                    x: 0,
+                    y: 0,
+                    width: 500,
+                    height: 430
+                ),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
             )
-            let window = NSWindow(contentViewController: controller)
             window.title = Strings(
                 UserDefaults.standard.string(forKey: LanguageKey) ?? "system"
             )("Codex Gauge Settings", "Codex Gauge 设置")
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = true
+            window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()
             settingsWindow = window
+        }
+        if settingsWindow?.contentViewController == nil {
+            settingsWindow?.contentViewController = NSHostingController(
+                rootView: SettingsView(model: model)
+            )
         }
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -178,7 +190,7 @@ final class CodexGaugeDelegate:
         guard let window = notification.object as? NSWindow,
               window === settingsWindow
         else { return }
-        settingsWindow = nil
+        window.contentViewController = nil
     }
 }
 

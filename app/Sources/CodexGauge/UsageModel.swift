@@ -10,6 +10,9 @@ enum Prefs {
     static let intervalKey = "refreshInterval"
     static let alertKey = "lowAlertEnabled"
     static let dailyReminderKey = "dailyPaceReminderEnabled"
+    static let tightReminderKey = "tightQuotaReminderEnabled"
+    static let wasteReminderKey = "unusedQuotaReminderEnabled"
+    static let dailyReminderHourKey = "dailyPaceReminderHour"
     static let menuMetricKey = "menuMetricPreference"
 
     static func registerDefaults() {
@@ -28,6 +31,9 @@ enum Prefs {
             intervalKey: 900,
             alertKey: false,
             dailyReminderKey: true,
+            tightReminderKey: true,
+            wasteReminderKey: true,
+            dailyReminderHourKey: 17,
             menuMetricKey: MenuMetricPreference.automatic.rawValue,
             LanguageKey: "zh"
         ])
@@ -50,6 +56,9 @@ enum Prefs {
             intervalKey,
             alertKey,
             dailyReminderKey,
+            tightReminderKey,
+            wasteReminderKey,
+            dailyReminderHourKey,
             menuMetricKey,
             LanguageKey,
             "quotaNotificationLedgerV1"
@@ -83,6 +92,21 @@ enum Prefs {
 
     static var dailyReminderEnabled: Bool {
         UserDefaults.standard.bool(forKey: dailyReminderKey)
+    }
+
+    static var reminderPreferences: ReminderPreferences {
+        ReminderPreferences(
+            quotaTight: UserDefaults.standard.bool(
+                forKey: tightReminderKey
+            ),
+            wasteRisk: UserDefaults.standard.bool(
+                forKey: wasteReminderKey
+            ),
+            dailyPace: dailyReminderEnabled,
+            dailyHour: UserDefaults.standard.integer(
+                forKey: dailyReminderHourKey
+            )
+        )
     }
 
     static var menuMetric: MenuMetricPreference {
@@ -302,26 +326,17 @@ final class UsageModel {
         else { return }
 
         var sentKeys = NotificationLedger.allKeys()
+        let preferences = Prefs.reminderPreferences
         for window in snapshot.windows {
             let evaluation = UsagePaceEvaluator.evaluate(window, now: now)
-            var pending = NotificationPolicy.pendingNotifications(
+            let pending = NotificationPolicy.notifications(
                 window: window,
                 evaluation: evaluation,
                 freshness: freshness,
                 now: now,
-                sentKeys: sentKeys
+                sentKeys: sentKeys,
+                preferences: preferences
             )
-            if Prefs.dailyReminderEnabled,
-               Calendar.current.component(.hour, from: now) >= 17,
-               let daily = NotificationPolicy.dailyNotification(
-                    window: window,
-                    evaluation: evaluation,
-                    freshness: freshness,
-                    now: now,
-                    sentKeys: sentKeys
-               ) {
-                pending.append(daily)
-            }
             for notification in pending {
                 send(notification)
                 sentKeys.insert(notification.dedupeKey)

@@ -4,6 +4,14 @@ import XCTest
 
 @MainActor
 final class PopoverLayoutTests: XCTestCase {
+    func testSettingsWindowUsesCompactTabbedLayout() throws {
+        let model = UsageModel(provider: LayoutEmptyProvider(), autoStart: false)
+        let renderer = ImageRenderer(content: SettingsView(model: model))
+        let image = try XCTUnwrap(renderer.nsImage)
+
+        XCTAssertLessThanOrEqual(image.size.height, 460)
+    }
+
     func testChineseWeeklyPopoverFitsCompactHeight() throws {
         let image = try renderWeeklyPopover()
 
