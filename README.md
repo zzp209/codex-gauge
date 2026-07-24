@@ -42,9 +42,10 @@ It never touches your token and can keep showing the last trusted snapshot when 
 - **🎯 Pace guidance** compares remaining quota with remaining time and highlights balanced, under-used, waste-risk, and quota-tight states.
 - **🔔 Utilization reminders** for quota likely to expire unused, low quota far from reset, and an optional daily pace check. Stale snapshots never notify.
 - **🧭 Automatic menu-bar metric** shows the window that currently needs attention most, or lets you pin the 5-hour or weekly window.
+- **↔️ Compact menu-bar title** keeps only the window and remaining quota (for example, `周 46%`); reset countdowns and exact times stay in the popover.
 - **🕘 Snapshot freshness** distinguishes fresh, aging, stale, and expired-window data.
 - **📈 Sanitized 24-hour trend** stores only time, window type, reset cycle, and remaining percentage; session paths and chat content are never written to history.
-- **⚙️ Local settings** for the sessions path, refresh interval, notification policy, menu metric, language, and launch at login.
+- **⚙️ Chinese-friendly local settings** with Chinese enabled by default, plus controls for the sessions path, refresh interval, notification policy, menu metric, language, and launch at login.
 - **🔒 100% local monitoring** — no automatic network calls and never reads your token.
 
 ## Install

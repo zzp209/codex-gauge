@@ -6,7 +6,7 @@ struct PopoverView: View {
     var openSettingsAction: (() -> Void)? = nil
     var ringTrimScale: Double = 1
 
-    @AppStorage(LanguageKey) private var lang = "en"
+    @AppStorage(LanguageKey) private var lang = "zh"
     @Environment(\.openSettings) private var openSettings
 
     private var t: Strings { Strings(lang) }
@@ -122,7 +122,7 @@ struct PopoverView: View {
 
     private func creditsRow(_ credits: CreditsSnapshot) -> some View {
         HStack {
-            Label(t("Credits", "付费 Credits"), systemImage: "creditcard")
+            Label(t("Credits", "付费额度"), systemImage: "creditcard")
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(Theme.fg2)
             Spacer()

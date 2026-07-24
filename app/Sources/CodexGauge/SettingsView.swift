@@ -9,7 +9,7 @@ struct SettingsView: View {
     @AppStorage(Prefs.alertKey) private var alertEnabled = false
     @AppStorage(Prefs.dailyReminderKey) private var dailyReminderEnabled = true
     @AppStorage(Prefs.menuMetricKey) private var menuMetric = MenuMetricPreference.automatic.rawValue
-    @AppStorage(LanguageKey) private var lang = "en"
+    @AppStorage(LanguageKey) private var lang = "zh"
 
     @State private var launchAtLogin = LaunchAtLoginController.isEnabled
     @State private var launchAtLoginError: String?

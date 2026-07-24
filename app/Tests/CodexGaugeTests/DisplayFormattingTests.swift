@@ -17,11 +17,11 @@ final class DisplayFormattingTests: XCTestCase {
     }
 
     func testWindowLabelsAreSemantic() {
-        XCTAssertEqual(DisplayFormatter.shortLabel(for: .fiveHour, chinese: true), "5小时")
+        XCTAssertEqual(DisplayFormatter.shortLabel(for: .fiveHour, chinese: true), "5时")
         XCTAssertEqual(DisplayFormatter.shortLabel(for: .weekly, chinese: true), "周")
         XCTAssertEqual(
             DisplayFormatter.shortLabel(for: .custom(minutes: 1_440), chinese: true),
-            "24小时"
+            "24时"
         )
     }
 }

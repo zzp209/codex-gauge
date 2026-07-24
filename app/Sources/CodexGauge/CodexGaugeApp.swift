@@ -14,6 +14,9 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         configureStatusItem()
         configurePopover()
+        if Prefs.alertEnabled {
+            model.requestNotificationAuthorization()
+        }
         model.restartTimer()
         Task {
             await model.refreshNow()
@@ -28,6 +31,14 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
                 self?.updateStatusTitle()
             }
         }
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        showPopover()
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -89,13 +100,22 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             popover.performClose(sender)
         } else {
+            showPopover(relativeTo: button)
+        }
+    }
+
+    private func showPopover(relativeTo button: NSStatusBarButton? = nil) {
+        guard let button = button ?? statusItem?.button, let popover else {
+            return
+        }
+        if !popover.isShown {
             popover.show(
                 relativeTo: button.bounds,
                 of: button,
                 preferredEdge: .minY
             )
-            NSApp.activate(ignoringOtherApps: true)
         }
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func showSettings() {

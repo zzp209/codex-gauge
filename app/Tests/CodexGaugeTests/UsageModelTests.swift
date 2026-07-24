@@ -3,8 +3,8 @@ import XCTest
 
 @MainActor
 final class UsageModelTests: XCTestCase {
-    func testMenuTitleLabelsWeeklyOnlySnapshot() {
-        UserDefaults.standard.set("en", forKey: LanguageKey)
+    func testMenuTitleIsCompactForWeeklySnapshot() {
+        UserDefaults.standard.set("zh", forKey: LanguageKey)
         UserDefaults.standard.set("automatic", forKey: Prefs.menuMetricKey)
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let model = UsageModel(provider: EmptyProvider(), autoStart: false)
@@ -13,7 +13,7 @@ final class UsageModelTests: XCTestCase {
             resetsAt: now.addingTimeInterval(5 * 86_400 + 14 * 3_600)
         )
 
-        XCTAssertEqual(model.menuBarTitle(now: now), "Week 51% · 5d 14h")
+        XCTAssertEqual(model.menuBarTitle(now: now), "周 51%")
     }
 
     func testMenuTitleShowsWaitingWhenWindowExpired() {

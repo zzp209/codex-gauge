@@ -4,6 +4,8 @@ import SwiftUI
 import UserNotifications
 
 enum Prefs {
+    static let migrationKey = "didMigrateRuby1304DefaultsV1"
+    static let legacyBundleIdentifier = "com.ruby1304.codex-gauge"
     static let codexPathKey = "codexPath"
     static let intervalKey = "refreshInterval"
     static let alertKey = "lowAlertEnabled"
@@ -11,14 +13,42 @@ enum Prefs {
     static let menuMetricKey = "menuMetricPreference"
 
     static func registerDefaults() {
+        migrateLegacyDefaultsIfNeeded(
+            current: .standard,
+            legacyDomain: UserDefaults.standard.persistentDomain(
+                forName: legacyBundleIdentifier
+            )
+        )
         UserDefaults.standard.register(defaults: [
             codexPathKey: "~/.codex/sessions",
             intervalKey: 60,
             alertKey: false,
             dailyReminderKey: true,
             menuMetricKey: MenuMetricPreference.automatic.rawValue,
-            LanguageKey: "en"
+            LanguageKey: "zh"
         ])
+    }
+
+    static func migrateLegacyDefaultsIfNeeded(
+        current: UserDefaults,
+        legacyDomain: [String: Any]?
+    ) {
+        guard !current.bool(forKey: migrationKey) else { return }
+        let keys = [
+            codexPathKey,
+            intervalKey,
+            alertKey,
+            dailyReminderKey,
+            menuMetricKey,
+            LanguageKey,
+            "quotaNotificationLedgerV1"
+        ]
+        for key in keys where current.object(forKey: key) == nil {
+            if let value = legacyDomain?[key] {
+                current.set(value, forKey: key)
+            }
+        }
+        current.set(true, forKey: migrationKey)
     }
 
     static var codexPath: String {
@@ -153,13 +183,7 @@ final class UsageModel {
             chinese: isChinese
         )
         let remaining = Int(window.remainingPercent.rounded())
-        guard let resetsAt = window.resetsAt else {
-            return "\(prefix)\(label) \(remaining)%"
-        }
-        let countdown = DisplayFormatter.countdown(
-            seconds: resetsAt.timeIntervalSince(now)
-        )
-        return "\(prefix)\(label) \(remaining)% · \(countdown)"
+        return "\(prefix)\(label) \(remaining)%"
     }
 
     func menuBarColor(now: Date) -> Color? {

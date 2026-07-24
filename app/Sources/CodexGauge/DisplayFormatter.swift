@@ -26,14 +26,14 @@ enum DisplayFormatter {
     ) -> String {
         switch kind {
         case .fiveHour:
-            return chinese ? "5小时" : "5h"
+            return chinese ? "5时" : "5h"
         case .weekly:
             return chinese ? "周" : "Week"
         case let .custom(minutes):
             if minutes.isMultiple(of: 60) {
-                return chinese ? "\(minutes / 60)小时" : "\(minutes / 60)h"
+                return chinese ? "\(minutes / 60)时" : "\(minutes / 60)h"
             }
-            return chinese ? "\(minutes)分钟" : "\(minutes)m"
+            return chinese ? "\(minutes)分" : "\(minutes)m"
         case .unknown:
             return chinese ? "额度" : "Quota"
         }
