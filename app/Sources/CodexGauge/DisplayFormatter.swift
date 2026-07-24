@@ -1,6 +1,21 @@
 import Foundation
 
 enum DisplayFormatter {
+    static func resetDate(
+        _ date: Date,
+        chinese: Bool,
+        timeZone: TimeZone = .autoupdatingCurrent
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(
+            identifier: chinese ? "zh_CN" : "en_US_POSIX"
+        )
+        formatter.timeZone = timeZone
+        formatter.dateFormat = chinese ? "M月d日 HH:mm" : "MMM d, HH:mm"
+        return formatter.string(from: date)
+    }
+
     static func countdown(
         seconds: TimeInterval,
         chinese: Bool = false
@@ -45,13 +60,13 @@ enum DisplayFormatter {
     ) -> String {
         switch kind {
         case .fiveHour:
-            return chinese ? "5 小时窗口" : "5-hour window"
+            return chinese ? "5 小时额度" : "5-hour quota"
         case .weekly:
-            return chinese ? "每周窗口" : "Weekly window"
+            return chinese ? "每周额度" : "Weekly quota"
         case let .custom(minutes):
-            return chinese ? "\(minutes) 分钟窗口" : "\(minutes)-minute window"
+            return chinese ? "\(minutes) 分钟额度" : "\(minutes)-minute quota"
         case .unknown:
-            return chinese ? "额度窗口" : "Quota window"
+            return chinese ? "额度" : "Quota"
         }
     }
 }

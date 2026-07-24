@@ -1,6 +1,6 @@
 import Foundation
 
-// Tiny code-based localization. English is the default; "zh" and "system" are options.
+// Tiny code-based localization. Chinese is the default; English and system are options.
 // Views read @AppStorage("language") so they re-render when the user switches.
 struct Strings {
     let zh: Bool

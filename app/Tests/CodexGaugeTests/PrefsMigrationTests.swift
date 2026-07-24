@@ -10,6 +10,7 @@ final class PrefsMigrationTests: XCTestCase {
 
         Prefs.migrateLegacyDefaultsIfNeeded(
             current: defaults,
+            currentDomain: [LanguageKey: "zh"],
             legacyDomain: [
                 Prefs.codexPathKey: "/tmp/legacy-sessions",
                 Prefs.intervalKey: 300,

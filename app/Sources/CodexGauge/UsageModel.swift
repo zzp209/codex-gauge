@@ -13,27 +13,38 @@ enum Prefs {
     static let menuMetricKey = "menuMetricPreference"
 
     static func registerDefaults() {
+        let currentDomain = Bundle.main.bundleIdentifier.flatMap {
+            UserDefaults.standard.persistentDomain(forName: $0)
+        }
         migrateLegacyDefaultsIfNeeded(
             current: .standard,
+            currentDomain: currentDomain,
             legacyDomain: UserDefaults.standard.persistentDomain(
                 forName: legacyBundleIdentifier
             )
         )
         UserDefaults.standard.register(defaults: [
             codexPathKey: "~/.codex/sessions",
-            intervalKey: 60,
+            intervalKey: 900,
             alertKey: false,
             dailyReminderKey: true,
             menuMetricKey: MenuMetricPreference.automatic.rawValue,
             LanguageKey: "zh"
         ])
+        let fallbackInterval = normalizedFallbackInterval(
+            UserDefaults.standard.integer(forKey: intervalKey)
+        )
+        if UserDefaults.standard.integer(forKey: intervalKey) != fallbackInterval {
+            UserDefaults.standard.set(fallbackInterval, forKey: intervalKey)
+        }
     }
 
     static func migrateLegacyDefaultsIfNeeded(
         current: UserDefaults,
+        currentDomain: [String: Any]?,
         legacyDomain: [String: Any]?
     ) {
-        guard !current.bool(forKey: migrationKey) else { return }
+        guard currentDomain?[migrationKey] as? Bool != true else { return }
         let keys = [
             codexPathKey,
             intervalKey,
@@ -43,7 +54,7 @@ enum Prefs {
             LanguageKey,
             "quotaNotificationLedgerV1"
         ]
-        for key in keys where current.object(forKey: key) == nil {
+        for key in keys where currentDomain?[key] == nil {
             if let value = legacyDomain?[key] {
                 current.set(value, forKey: key)
             }
@@ -57,7 +68,13 @@ enum Prefs {
     }
 
     static var interval: Int {
-        max(15, UserDefaults.standard.integer(forKey: intervalKey))
+        normalizedFallbackInterval(
+            UserDefaults.standard.integer(forKey: intervalKey)
+        )
+    }
+
+    static func normalizedFallbackInterval(_ value: Int) -> Int {
+        max(300, value)
     }
 
     static var alertEnabled: Bool {
@@ -79,8 +96,10 @@ enum Prefs {
 final class UsageModel {
     private let provider: any UsageSnapshotProviding
     private let historyStore: SnapshotHistoryStore
+    private let directoryWatcher: any SessionDirectoryWatching
     private var timer: Timer?
 
+    var onSnapshotChange: (@MainActor () -> Void)?
     var snapshot: UsageSnapshot?
     var recentUsageChanges: [String: Double] = [:]
     var lastError: UsageDataError?
@@ -90,10 +109,12 @@ final class UsageModel {
     init(
         provider: any UsageSnapshotProviding = SessionLogReader(),
         historyStore: SnapshotHistoryStore = SnapshotHistoryStore(),
+        directoryWatcher: any SessionDirectoryWatching = SessionDirectoryWatcher(),
         autoStart: Bool = true
     ) {
         self.provider = provider
         self.historyStore = historyStore
+        self.directoryWatcher = directoryWatcher
         Prefs.registerDefaults()
         NotificationLedger.prune(
             before: Date().addingTimeInterval(-45 * 86_400)
@@ -117,6 +138,23 @@ final class UsageModel {
                 self?.refresh()
             }
         }
+        timer?.tolerance = min(60, TimeInterval(Prefs.interval) * 0.2)
+    }
+
+    func restartMonitoring() {
+        restartTimer()
+        directoryWatcher.stop()
+        try? directoryWatcher.start(path: Prefs.codexPath) { [weak self] in
+            Task { @MainActor in
+                self?.refresh()
+            }
+        }
+    }
+
+    func stopMonitoring() {
+        timer?.invalidate()
+        timer = nil
+        directoryWatcher.stop()
     }
 
     func refresh() {
@@ -128,7 +166,10 @@ final class UsageModel {
     func refreshNow() async {
         guard !isRefreshing else { return }
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            isRefreshing = false
+            onSnapshotChange?()
+        }
         do {
             let value = try await provider.latestSnapshot(path: Prefs.codexPath)
             snapshot = value

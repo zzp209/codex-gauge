@@ -12,7 +12,7 @@
   <a href="https://github.com/ruby1304/codex-gauge/stargazers"><img src="https://img.shields.io/github/stars/ruby1304/codex-gauge?style=social" alt="Stars"></a>
 </p>
 <p align="center">
-  <img src="docs/demo.gif" width="430" alt="Codex Gauge popover — the two usage rings drawing in">
+  <img src="docs/demo.gif" width="430" alt="Codex Gauge compact quota popover">
 </p>
 
 A tiny native **macOS menu-bar app** that shows the **Codex (ChatGPT) usage windows actually present in your local snapshot** — including 5-hour and weekly windows — with reset countdowns, freshness, pace guidance, and utilization alerts.
@@ -31,7 +31,7 @@ It never touches your token and can keep showing the last trusted snapshot when 
 |---|---|---|
 | Where | buried in the account menu | **always in your menu bar** |
 | Visible when Codex is closed | ✗ | **✓** |
-| Look | one line of text | **live gauge rings** |
+| Look | one line of text | **compact pace summary** |
 | Cost to check your usage | — | **zero · pure local read** |
 | Low-quota notifications | ✗ | **✓** |
 
@@ -43,6 +43,7 @@ It never touches your token and can keep showing the last trusted snapshot when 
 - **🔔 Utilization reminders** for quota likely to expire unused, low quota far from reset, and an optional daily pace check. Stale snapshots never notify.
 - **🧭 Automatic menu-bar metric** shows the window that currently needs attention most, or lets you pin the 5-hour or weekly window.
 - **↔️ Compact menu-bar title** keeps only the window and remaining quota (for example, `周 46%`); reset countdowns and exact times stay in the popover.
+- **⚡ Event-driven local refresh** reacts to session-log changes immediately and uses a coalesced fallback check only when needed.
 - **🕘 Snapshot freshness** distinguishes fresh, aging, stale, and expired-window data.
 - **📈 Sanitized 24-hour trend** stores only time, window type, reset cycle, and remaining percentage; session paths and chat content are never written to history.
 - **⚙️ Chinese-friendly local settings** with Chinese enabled by default, plus controls for the sessions path, refresh interval, notification policy, menu metric, language, and launch at login.
@@ -56,7 +57,7 @@ It never touches your token and can keep showing the last trusted snapshot when 
    ```sh
    xattr -dr com.apple.quarantine /Applications/CodexGauge.app
    ```
-3. Look at your menu bar — `◔ 71%`. Click it for the gauges.
+3. Look at your menu bar — `周 71%`. Click it for the compact quota summary.
 
 ### Build from source
 ```sh

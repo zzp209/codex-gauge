@@ -2,13 +2,19 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
+final class CodexGaugeDelegate:
+    NSObject,
+    NSApplicationDelegate,
+    NSPopoverDelegate,
+    NSWindowDelegate
+{
     let model = UsageModel(autoStart: false)
 
     private var statusItem: NSStatusItem?
-    private var popover: NSPopover?
+    private(set) var popover: NSPopover?
     private var settingsWindow: NSWindow?
-    private var displayTimer: Timer?
+    private var statusTimer: Timer?
+    private var statusCache = StatusPresentationCache()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -17,13 +23,15 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
         if Prefs.alertEnabled {
             model.requestNotificationAuthorization()
         }
-        model.restartTimer()
+        model.onSnapshotChange = { [weak self] in
+            self?.updateStatusTitle()
+        }
+        model.restartMonitoring()
         Task {
             await model.refreshNow()
-            updateStatusTitle()
         }
-        displayTimer = Timer.scheduledTimer(
-            withTimeInterval: 30,
+        statusTimer = Timer.scheduledTimer(
+            withTimeInterval: 300,
             repeats: true
         ) { [weak self] _ in
             Task { @MainActor in
@@ -31,6 +39,7 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
                 self?.updateStatusTitle()
             }
         }
+        statusTimer?.tolerance = 60
     }
 
     func applicationShouldHandleReopen(
@@ -42,7 +51,8 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        displayTimer?.invalidate()
+        statusTimer?.invalidate()
+        model.stopMonitoring()
     }
 
     private func configureStatusItem() {
@@ -55,10 +65,18 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
     }
 
-    private func configurePopover() {
+    func configurePopover() {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
+        self.popover = popover
+    }
+
+    func preparePopoverContent() {
+        guard let popover, popover.contentViewController == nil else {
+            return
+        }
         popover.contentViewController = NSHostingController(
             rootView: PopoverView(
                 model: model,
@@ -68,31 +86,49 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
                 }
             )
         )
-        self.popover = popover
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        popover?.contentViewController = nil
     }
 
     private func updateStatusTitle() {
         guard let button = statusItem?.button else { return }
         let now = Date()
-        let color: NSColor
+        let tone: StatusTone
         switch model.menuBarPaceStatus(now: now) {
         case .useMore:
-            color = .systemBlue
+            tone = .informational
         case .wasteRisk:
-            color = .systemOrange
+            tone = .warning
         case .aheadOfPace:
-            color = .systemYellow
+            tone = .warning
         case .quotaTight:
-            color = .systemRed
+            tone = .critical
         case .unknown, .expired:
-            color = .secondaryLabelColor
+            tone = .muted
         case .balanced, nil:
-            color = .labelColor
+            tone = .normal
         }
-        button.attributedTitle = NSAttributedString(
-            string: model.menuBarTitle(now: now),
-            attributes: [.foregroundColor: color]
+        let presentation = StatusPresentation(
+            title: model.menuBarTitle(now: now),
+            tone: tone
         )
+        guard statusCache.shouldApply(presentation) else { return }
+        button.attributedTitle = NSAttributedString(
+            string: presentation.title,
+            attributes: [.foregroundColor: color(for: tone)]
+        )
+    }
+
+    private func color(for tone: StatusTone) -> NSColor {
+        switch tone {
+        case .normal: .labelColor
+        case .informational: .systemBlue
+        case .warning: .systemOrange
+        case .critical: .systemRed
+        case .muted: .secondaryLabelColor
+        }
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -109,6 +145,7 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
             return
         }
         if !popover.isShown {
+            preparePopoverContent()
             popover.show(
                 relativeTo: button.bounds,
                 of: button,
@@ -124,14 +161,24 @@ final class CodexGaugeDelegate: NSObject, NSApplicationDelegate {
                 rootView: SettingsView(model: model)
             )
             let window = NSWindow(contentViewController: controller)
-            window.title = "Codex Gauge Settings"
+            window.title = Strings(
+                UserDefaults.standard.string(forKey: LanguageKey) ?? "system"
+            )("Codex Gauge Settings", "Codex Gauge 设置")
             window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = false
+            window.isReleasedWhenClosed = true
+            window.delegate = self
             window.center()
             settingsWindow = window
         }
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window === settingsWindow
+        else { return }
+        settingsWindow = nil
     }
 }
 

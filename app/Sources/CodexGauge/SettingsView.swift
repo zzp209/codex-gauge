@@ -5,7 +5,7 @@ struct SettingsView: View {
     var model: UsageModel
 
     @AppStorage(Prefs.codexPathKey) private var codexPath = "~/.codex/sessions"
-    @AppStorage(Prefs.intervalKey) private var refreshInterval = 60
+    @AppStorage(Prefs.intervalKey) private var refreshInterval = 900
     @AppStorage(Prefs.alertKey) private var alertEnabled = false
     @AppStorage(Prefs.dailyReminderKey) private var dailyReminderEnabled = true
     @AppStorage(Prefs.menuMetricKey) private var menuMetric = MenuMetricPreference.automatic.rawValue
@@ -25,7 +25,10 @@ struct SettingsView: View {
                         text: $codexPath
                     )
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit { model.refresh() }
+                    .onSubmit {
+                        model.restartMonitoring()
+                        model.refresh()
+                    }
                     Button(t("Choose…", "选取…")) { pick() }
                 }
                 Text(t(
@@ -39,18 +42,24 @@ struct SettingsView: View {
             Section(t("Display", "显示")) {
                 Picker(t("Menu bar metric", "菜单栏显示"), selection: $menuMetric) {
                     Text(t("Automatic", "自动选择")).tag(MenuMetricPreference.automatic.rawValue)
-                    Text(t("5-hour window", "5 小时窗口")).tag(MenuMetricPreference.fiveHour.rawValue)
-                    Text(t("Weekly window", "每周窗口")).tag(MenuMetricPreference.weekly.rawValue)
+                    Text(t("5-hour quota", "5 小时额度")).tag(MenuMetricPreference.fiveHour.rawValue)
+                    Text(t("Weekly quota", "每周额度")).tag(MenuMetricPreference.weekly.rawValue)
                 }
-                Picker(t("Refresh local files every", "本地刷新频率"), selection: $refreshInterval) {
-                    Text(t("30 seconds", "30 秒")).tag(30)
-                    Text(t("1 minute", "1 分钟")).tag(60)
+                Picker(t("Fallback check interval", "兜底检查间隔"), selection: $refreshInterval) {
                     Text(t("5 minutes", "5 分钟")).tag(300)
                     Text(t("15 minutes", "15 分钟")).tag(900)
+                    Text(t("30 minutes", "30 分钟")).tag(1_800)
+                    Text(t("1 hour", "1 小时")).tag(3_600)
                 }
                 .onChange(of: refreshInterval) {
-                    model.restartTimer()
+                    model.restartMonitoring()
                 }
+                Text(t(
+                    "Session-file changes refresh immediately; this interval is only a fallback.",
+                    "会话文件变化时会立即刷新；此间隔仅用于兜底检查。"
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Section(t("Utilization reminders", "额度利用提醒")) {
@@ -134,6 +143,7 @@ struct SettingsView: View {
         )
         if panel.runModal() == .OK, let url = panel.url {
             codexPath = url.path
+            model.restartMonitoring()
             model.refresh()
         }
     }

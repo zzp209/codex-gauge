@@ -69,7 +69,7 @@ if let i = args.firstIndex(of: "--shot"), i + 1 < args.count {
     exit(0)
 }
 
-// "--frames <dir> <N>" renders N frames of the rings drawing in (for the demo GIF) and exits.
+// "--frames <dir> <N>" renders N frames of the quota bars drawing in and exits.
 if let i = args.firstIndex(of: "--frames"), i + 2 < args.count {
     let dir = args[i + 1]
     let n = max(2, Int(args[i + 2]) ?? 16)

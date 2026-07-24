@@ -58,6 +58,12 @@ struct CreditsSnapshot: Equatable, Sendable {
     let balance: Decimal?
 }
 
+extension CreditsSnapshot {
+    var shouldDisplay: Bool {
+        unlimited || hasCredits || (balance ?? 0) > 0
+    }
+}
+
 struct SnapshotSource: Equatable, Sendable {
     let sessionFile: URL
     let eventTimestamp: Date
