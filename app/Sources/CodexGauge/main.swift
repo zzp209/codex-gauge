@@ -41,6 +41,11 @@ func demoModel() -> UsageModel {
     )
     model.recentUsageChanges[UsageWindowKind.fiveHour.key] = 8
     model.recentUsageChanges[UsageWindowKind.weekly.key] = 22
+    model.dailyActivity = DailyActivitySnapshot(
+        newThreads: 10,
+        sentMessages: 125,
+        archivedThreads: 31
+    )
     return model
 }
 

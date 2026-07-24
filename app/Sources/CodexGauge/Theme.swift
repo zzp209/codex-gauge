@@ -12,6 +12,7 @@ enum Theme {
     static let border    = Color(hex: 0x141e32, alpha: 0.08)
     static let good      = Color(hex: 0x0e8a4f)
     static let info      = Color(hex: 0x2563eb)
+    static let archive   = Color(hex: 0x7357c6)
     static let warn      = Color(hex: 0xc98a14)
     static let caution   = Color(hex: 0xb7791f)
     static let bad       = Color(hex: 0xe0411b)

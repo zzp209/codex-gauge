@@ -7,7 +7,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "CodexGauge",
-            path: "Sources/CodexGauge"
+            path: "Sources/CodexGauge",
+            linkerSettings: [
+                .linkedLibrary("sqlite3")
+            ]
         ),
         .testTarget(
             name: "CodexGaugeTests",

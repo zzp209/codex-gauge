@@ -6,7 +6,7 @@
   <b>Your Codex usage limits, always in the menu bar —<br>without ever spending a token to check them.</b>
 </p>
 <p align="center">
-  <a href="https://github.com/ruby1304/codex-gauge/releases/latest"><img src="https://img.shields.io/github/v/release/ruby1304/codex-gauge?color=0e8a4f" alt="Release"></a>
+  <a href="https://github.com/zzp209/codex-gauge/releases/latest"><img src="https://img.shields.io/github/v/release/zzp209/codex-gauge?color=0e8a4f" alt="Release"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-lightgrey" alt="macOS 14+">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/ruby1304/codex-gauge?color=0e8a4f" alt="MIT License"></a>
   <a href="https://github.com/ruby1304/codex-gauge/stargazers"><img src="https://img.shields.io/github/stars/ruby1304/codex-gauge?style=social" alt="Stars"></a>
@@ -46,6 +46,7 @@ It never touches your token and can keep showing the last trusted snapshot when 
 - **⚡ Event-driven local refresh** reacts to session-log changes immediately and uses a coalesced fallback check only when needed.
 - **🕘 Snapshot freshness** distinguishes fresh, aging, stale, and expired-window data.
 - **📈 Sanitized 24-hour trend** stores only time, window type, reset cycle, and remaining percentage; session paths and chat content are never written to history.
+- **💬 Visual daily activity** shows today's new tasks, sent messages, and archived tasks as compact icon metrics, excluding hidden tasks and subagents.
 - **⚙️ Chinese-friendly local settings** with Chinese enabled by default, plus controls for the sessions path, refresh interval, notification policy, menu metric, language, and launch at login.
 - **🚀 Reset-card shortcut** opens Cockpit Tools when it is installed, with the official usage page as a fallback.
 - **🔒 100% local monitoring** — no automatic network calls and never reads your token.
@@ -53,7 +54,7 @@ It never touches your token and can keep showing the last trusted snapshot when 
 ## Install
 
 ### Download (recommended)
-1. Grab `CodexGauge.app.zip` from the [**Releases**](https://github.com/ruby1304/codex-gauge/releases) page, unzip, and drag `CodexGauge.app` to `/Applications`.
+1. Grab `CodexGauge.app.zip` from the [**Releases**](https://github.com/zzp209/codex-gauge/releases) page, unzip, and drag `CodexGauge.app` to `/Applications`.
 2. First launch: right-click the app → **Open** (it's open-source and unsigned), or run:
    ```sh
    xattr -dr com.apple.quarantine /Applications/CodexGauge.app
@@ -62,7 +63,7 @@ It never touches your token and can keep showing the last trusted snapshot when 
 
 ### Build from source
 ```sh
-git clone https://github.com/ruby1304/codex-gauge.git
+git clone https://github.com/zzp209/codex-gauge.git
 cd codex-gauge/app && ./build.sh run
 ```
 Needs the Swift toolchain (Xcode **Command Line Tools** — no full Xcode required).

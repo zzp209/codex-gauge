@@ -89,6 +89,40 @@ final class UsageModelTests: XCTestCase {
         XCTAssertNil(model.lastError)
     }
 
+    func testDailyActivityRefreshIsIndependentFromQuotaRefresh() async {
+        let activity = FixedActivityProvider(
+            snapshot: DailyActivitySnapshot(
+                newThreads: 10,
+                sentMessages: 125,
+                archivedThreads: 31
+            )
+        )
+        let model = UsageModel(
+            provider: EmptyProvider(),
+            activityProvider: activity,
+            autoStart: false
+        )
+
+        await model.refreshNow()
+
+        XCTAssertNil(model.dailyActivity)
+        let quotaOnlyInvocationCount = await activity.invocationCount
+        XCTAssertEqual(quotaOnlyInvocationCount, 0)
+
+        await model.refreshDailyActivityNow()
+
+        XCTAssertEqual(
+            model.dailyActivity,
+            DailyActivitySnapshot(
+                newThreads: 10,
+                sentMessages: 125,
+                archivedThreads: 31
+            )
+        )
+        let activityInvocationCount = await activity.invocationCount
+        XCTAssertEqual(activityInvocationCount, 1)
+    }
+
     private func makeSnapshot(
         eventTimestamp: Date,
         resetsAt: Date
@@ -146,5 +180,19 @@ private actor SequenceProvider: UsageSnapshotProviding {
             throw UsageDataError.noRateLimitEvents
         }
         return snapshots.removeFirst()
+    }
+}
+
+private actor FixedActivityProvider: DailyActivityProviding {
+    let snapshot: DailyActivitySnapshot
+    private(set) var invocationCount = 0
+
+    init(snapshot: DailyActivitySnapshot) {
+        self.snapshot = snapshot
+    }
+
+    func latest(now: Date) async throws -> DailyActivitySnapshot {
+        invocationCount += 1
+        return snapshot
     }
 }

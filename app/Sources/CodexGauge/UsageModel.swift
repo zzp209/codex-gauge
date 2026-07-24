@@ -119,24 +119,29 @@ enum Prefs {
 @Observable
 final class UsageModel {
     private let provider: any UsageSnapshotProviding
+    private let activityProvider: any DailyActivityProviding
     private let historyStore: SnapshotHistoryStore
     private let directoryWatcher: any SessionDirectoryWatching
     private var timer: Timer?
 
     var onSnapshotChange: (@MainActor () -> Void)?
     var snapshot: UsageSnapshot?
+    var dailyActivity: DailyActivitySnapshot?
     var recentUsageChanges: [String: Double] = [:]
     var lastError: UsageDataError?
     var isRefreshing = false
+    var isActivityRefreshing = false
     var displayDate = Date()
 
     init(
         provider: any UsageSnapshotProviding = SessionLogReader(),
+        activityProvider: any DailyActivityProviding = DailyActivityReader(),
         historyStore: SnapshotHistoryStore = SnapshotHistoryStore(),
         directoryWatcher: any SessionDirectoryWatching = SessionDirectoryWatcher(),
         autoStart: Bool = true
     ) {
         self.provider = provider
+        self.activityProvider = activityProvider
         self.historyStore = historyStore
         self.directoryWatcher = directoryWatcher
         Prefs.registerDefaults()
@@ -209,6 +214,24 @@ final class UsageModel {
             lastError = error
         } catch {
             lastError = .unsupportedSchema
+        }
+    }
+
+    func refreshDailyActivity() {
+        Task {
+            await refreshDailyActivityNow()
+        }
+    }
+
+    func refreshDailyActivityNow(now: Date = Date()) async {
+        guard !isActivityRefreshing else { return }
+        isActivityRefreshing = true
+        defer { isActivityRefreshing = false }
+        do {
+            dailyActivity = try await activityProvider.latest(now: now)
+        } catch {
+            // Daily activity is supplementary. Keep the last trusted value
+            // instead of replacing quota status with an unrelated error.
         }
     }
 

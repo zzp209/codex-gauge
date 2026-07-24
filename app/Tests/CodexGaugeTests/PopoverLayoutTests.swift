@@ -41,6 +41,22 @@ final class PopoverLayoutTests: XCTestCase {
         XCTAssertEqual(magentaPixelCount, 0)
     }
 
+    func testDailyActivityStripFitsCompactPopoverWidth() throws {
+        let renderer = ImageRenderer(content: DailyActivityStrip(
+            activity: DailyActivitySnapshot(
+                newThreads: 10,
+                sentMessages: 125,
+                archivedThreads: 31
+            ),
+            isLoading: false,
+            t: Strings("zh")
+        ))
+        let image = try XCTUnwrap(renderer.nsImage)
+
+        XCTAssertLessThanOrEqual(image.size.width, 312)
+        XCTAssertLessThanOrEqual(image.size.height, 60)
+    }
+
     private func renderWeeklyPopover() throws -> NSImage {
         UserDefaults.standard.set("zh", forKey: LanguageKey)
         let now = Date()
@@ -70,6 +86,11 @@ final class PopoverLayoutTests: XCTestCase {
             )
         )
         model.recentUsageChanges[UsageWindowKind.weekly.key] = 3
+        model.dailyActivity = DailyActivitySnapshot(
+            newThreads: 10,
+            sentMessages: 125,
+            archivedThreads: 31
+        )
 
         let renderer = ImageRenderer(content: PopoverView(model: model))
         return try XCTUnwrap(renderer.nsImage)

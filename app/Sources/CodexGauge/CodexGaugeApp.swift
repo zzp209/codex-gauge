@@ -146,6 +146,7 @@ final class CodexGaugeDelegate:
             return
         }
         if !popover.isShown {
+            model.refreshDailyActivity()
             preparePopoverContent()
             popover.show(
                 relativeTo: button.bounds,

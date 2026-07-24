@@ -46,8 +46,11 @@ struct PopoverView: View {
             .font(.system(size: 10))
             .foregroundStyle(freshnessColor(now: now))
 
-            Button { model.refresh() } label: {
-                if model.isRefreshing {
+            Button {
+                model.refresh()
+                model.refreshDailyActivity()
+            } label: {
+                if model.isRefreshing || model.isActivityRefreshing {
                     ProgressView().controlSize(.mini)
                 } else {
                     Image(systemName: "arrow.clockwise")
@@ -55,8 +58,8 @@ struct PopoverView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(Theme.fg3)
-            .help(t("Refresh local snapshot", "刷新本地快照"))
-            .disabled(model.isRefreshing)
+            .help(t("Refresh local data", "刷新本地数据"))
+            .disabled(model.isRefreshing || model.isActivityRefreshing)
 
             Button {
                 if let openSettingsAction {
@@ -94,6 +97,12 @@ struct PopoverView: View {
                     )
                 }
 
+                DailyActivityStrip(
+                    activity: model.dailyActivity,
+                    isLoading: model.isActivityRefreshing,
+                    t: t
+                )
+
                 ForEach(snapshot.windows) { window in
                     UsageWindowCard(
                         window: window,
@@ -110,14 +119,24 @@ struct PopoverView: View {
             .padding(.horizontal, 14)
             .padding(.bottom, 12)
         } else {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(t("No trusted quota snapshot", "暂无可信额度快照"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.fg)
-                Text(model.lastError?.localizedDescription
-                    ?? t("Run Codex once, then refresh.", "运行一次 Codex 后再刷新。"))
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Theme.fg2)
+            VStack(alignment: .leading, spacing: 9) {
+                DailyActivityStrip(
+                    activity: model.dailyActivity,
+                    isLoading: model.isActivityRefreshing,
+                    t: t
+                )
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(t("No trusted quota snapshot", "暂无可信额度快照"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.fg)
+                    Text(model.lastError?.localizedDescription
+                        ?? t(
+                            "Run Codex once, then refresh.",
+                            "运行一次 Codex 后再刷新。"
+                        ))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.fg2)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14)
@@ -209,6 +228,78 @@ struct PopoverView: View {
         case .aging: Theme.caution
         case .stale, .expiredWindow, nil: Theme.muted
         }
+    }
+}
+
+struct DailyActivityStrip: View {
+    let activity: DailyActivitySnapshot?
+    let isLoading: Bool
+    let t: Strings
+
+    var body: some View {
+        HStack(spacing: 7) {
+            metric(
+                value: activity?.newThreads,
+                icon: "plus.bubble.fill",
+                color: Theme.info,
+                label: t("New tasks today", "今日新增任务")
+            )
+            metric(
+                value: activity?.sentMessages,
+                icon: "paperplane.fill",
+                color: Theme.good,
+                label: t("Messages sent today", "今日发送消息")
+            )
+            metric(
+                value: activity?.archivedThreads,
+                icon: "archivebox.fill",
+                color: Theme.archive,
+                label: t("Tasks archived today", "今日归档任务")
+            )
+        }
+        .frame(width: 312)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func metric(
+        value: Int?,
+        icon: String,
+        color: Color,
+        label: String
+    ) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 20, height: 20)
+                .background(
+                    color.opacity(0.11),
+                    in: RoundedRectangle(cornerRadius: 6)
+                )
+            Text(displayValue(value))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Theme.fg)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, minHeight: 38)
+        .background(Theme.panelSoft, in: RoundedRectangle(cornerRadius: 9))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(Theme.border, lineWidth: 0.5)
+        )
+        .help("\(label) · \(displayValue(value))")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(displayValue(value))
+    }
+
+    private func displayValue(_ value: Int?) -> String {
+        if let value { return String(value) }
+        return isLoading ? "…" : "—"
     }
 }
 
