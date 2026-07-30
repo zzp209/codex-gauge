@@ -129,6 +129,7 @@ final class UsageModel {
     var dailyActivity: DailyActivitySnapshot?
     var recentUsageChanges: [String: Double] = [:]
     var lastError: UsageDataError?
+    var lastSuccessfulQuotaCheckAt: Date?
     var isRefreshing = false
     var isActivityRefreshing = false
     var displayDate = Date()
@@ -192,7 +193,7 @@ final class UsageModel {
         }
     }
 
-    func refreshNow() async {
+    func refreshNow(now: Date = Date()) async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer {
@@ -202,12 +203,12 @@ final class UsageModel {
         do {
             let value = try await provider.latestSnapshot(path: Prefs.codexPath)
             lastError = nil
+            lastSuccessfulQuotaCheckAt = now
             if let snapshot,
                value.source.eventTimestamp < snapshot.source.eventTimestamp {
                 return
             }
             snapshot = value
-            let now = Date()
             await updateHistory(with: value, now: now)
             checkNotifications(now: now)
         } catch let error as UsageDataError {

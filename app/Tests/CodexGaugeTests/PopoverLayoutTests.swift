@@ -57,7 +57,20 @@ final class PopoverLayoutTests: XCTestCase {
         XCTAssertLessThanOrEqual(image.size.height, 60)
     }
 
-    private func renderWeeklyPopover() throws -> NSImage {
+    func testStaleQuotaExplanationKeepsPopoverCompact() throws {
+        let image = try renderWeeklyPopover(
+            eventAge: 16 * 3_600 + 24 * 60,
+            checkedRecently: true
+        )
+
+        XCTAssertEqual(image.size.width, 340, accuracy: 0.5)
+        XCTAssertLessThanOrEqual(image.size.height, 340)
+    }
+
+    private func renderWeeklyPopover(
+        eventAge: TimeInterval = 0,
+        checkedRecently: Bool = false
+    ) throws -> NSImage {
         UserDefaults.standard.set("zh", forKey: LanguageKey)
         let now = Date()
         let model = UsageModel(provider: LayoutEmptyProvider(), autoStart: false)
@@ -81,10 +94,13 @@ final class PopoverLayoutTests: XCTestCase {
             ),
             source: SnapshotSource(
                 sessionFile: URL(fileURLWithPath: "/tmp/rollout.jsonl"),
-                eventTimestamp: now,
+                eventTimestamp: now.addingTimeInterval(-eventAge),
                 fileModificationDate: now
             )
         )
+        if checkedRecently {
+            model.lastSuccessfulQuotaCheckAt = now.addingTimeInterval(-30)
+        }
         model.recentUsageChanges[UsageWindowKind.weekly.key] = 3
         model.dailyActivity = DailyActivitySnapshot(
             newThreads: 10,

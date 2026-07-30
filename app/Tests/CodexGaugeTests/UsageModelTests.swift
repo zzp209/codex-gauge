@@ -89,6 +89,32 @@ final class UsageModelTests: XCTestCase {
         XCTAssertNil(model.lastError)
     }
 
+    func testSuccessfulRefreshRecordsQuotaCheckTime() async {
+        let checkTime = Date(timeIntervalSince1970: 1_800_000_000)
+        let snapshot = makeSnapshot(
+            eventTimestamp: checkTime.addingTimeInterval(-16 * 3_600),
+            resetsAt: checkTime.addingTimeInterval(5 * 86_400)
+        )
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("history-v1.json")
+        defer {
+            try? FileManager.default.removeItem(
+                at: fileURL.deletingLastPathComponent()
+            )
+        }
+        let model = UsageModel(
+            provider: FixedProvider(snapshot: snapshot),
+            historyStore: SnapshotHistoryStore(fileURL: fileURL),
+            autoStart: false
+        )
+
+        await model.refreshNow(now: checkTime)
+
+        XCTAssertEqual(model.lastSuccessfulQuotaCheckAt, checkTime)
+        XCTAssertEqual(model.snapshot, snapshot)
+    }
+
     func testDailyActivityRefreshIsIndependentFromQuotaRefresh() async {
         let activity = FixedActivityProvider(
             snapshot: DailyActivitySnapshot(

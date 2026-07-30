@@ -39,7 +39,7 @@ struct PopoverView: View {
             }
             Spacer()
             Label(
-                freshnessText(now: now),
+                freshnessPresentation(now: now).headerText,
                 systemImage: "circle.fill"
             )
             .labelStyle(CompactFreshnessLabelStyle())
@@ -93,7 +93,8 @@ struct PopoverView: View {
                         window: focus,
                         usedPoints: model.recentUsageChange(for: focus.kind),
                         now: now,
-                        t: t
+                        t: t,
+                        refreshPresentation: freshnessPresentation(now: now)
                     )
                 }
 
@@ -108,7 +109,10 @@ struct PopoverView: View {
                         window: window,
                         now: now,
                         t: t,
-                        trimScale: ringTrimScale
+                        trimScale: ringTrimScale,
+                        usesMutedStyle: freshnessPresentation(
+                            now: now
+                        ).usesMutedQuotaStyle
                     )
                 }
 
@@ -198,32 +202,24 @@ struct PopoverView: View {
         .padding(.vertical, 10)
     }
 
-    private func freshnessText(now: Date) -> String {
-        guard let snapshot = model.snapshot else { return "" }
-        let seconds = max(
-            0,
-            now.timeIntervalSince(snapshot.source.eventTimestamp)
+    private func freshnessPresentation(
+        now: Date
+    ) -> QuotaRefreshPresentation {
+        QuotaRefreshPresentation.make(
+            freshness: model.freshness(now: now),
+            eventTimestamp: model.snapshot?.source.eventTimestamp,
+            lastSuccessfulCheckAt: model.lastSuccessfulQuotaCheckAt,
+            now: now,
+            refreshInterval: TimeInterval(Prefs.interval),
+            t: t
         )
-        if seconds < 60, model.freshness(now: now) == .fresh {
-            return t("Just now", "刚刚")
-        }
-        let age = DisplayFormatter.countdown(seconds: seconds, chinese: t.zh)
-        switch model.freshness(now: now) {
-        case .fresh:
-            return t("\(age) ago", "\(age)前")
-        case .aging:
-            return t("May have changed · \(age)", "可能变化 · \(age)")
-        case .stale:
-            return t("Stale · \(age)", "已过时 · \(age)")
-        case .expiredWindow:
-            return t("Waiting for update", "等待新快照")
-        case nil:
-            return ""
-        }
     }
 
     private func freshnessColor(now: Date) -> Color {
-        switch model.freshness(now: now) {
+        if freshnessPresentation(now: now).showsSuccessfulCheck {
+            return Theme.info
+        }
+        return switch model.freshness(now: now) {
         case .fresh: Theme.good
         case .aging: Theme.caution
         case .stale, .expiredWindow, nil: Theme.muted
@@ -318,23 +314,31 @@ private struct PaceSummaryView: View {
     let usedPoints: Double?
     let now: Date
     let t: Strings
+    let refreshPresentation: QuotaRefreshPresentation
 
     var body: some View {
         let evaluation = UsagePaceEvaluator.evaluate(window, now: now)
+        let color = refreshPresentation.usesMutedQuotaStyle
+            ? Theme.info
+            : Theme.pace(evaluation.status)
         HStack(alignment: .top, spacing: 9) {
-            Image(systemName: icon(evaluation.status))
+            Image(systemName: refreshPresentation.usesMutedQuotaStyle
+                ? "arrow.clockwise.circle.fill"
+                : icon(evaluation.status))
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.pace(evaluation.status))
+                .foregroundStyle(color)
                 .frame(width: 21, height: 21)
                 .background(
-                    Theme.pace(evaluation.status).opacity(0.12),
+                    color.opacity(0.12),
                     in: RoundedRectangle(cornerRadius: 6)
                 )
             VStack(alignment: .leading, spacing: 2) {
-                Text(statusText(evaluation.status))
+                Text(refreshPresentation.paceTitle
+                    ?? statusText(evaluation.status))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.fg)
-                if let detail = detailText(evaluation) {
+                if let detail = refreshPresentation.paceDetail
+                    ?? detailText(evaluation) {
                     Text(detail)
                         .font(.system(size: 10))
                         .foregroundStyle(Theme.fg2)
@@ -345,7 +349,7 @@ private struct PaceSummaryView: View {
         }
         .padding(9)
         .background(
-            Theme.pace(evaluation.status).opacity(0.07),
+            color.opacity(0.07),
             in: RoundedRectangle(cornerRadius: 9)
         )
     }
@@ -401,9 +405,13 @@ private struct UsageWindowCard: View {
     let now: Date
     let t: Strings
     let trimScale: Double
+    let usesMutedStyle: Bool
 
     var body: some View {
         let evaluation = UsagePaceEvaluator.evaluate(window, now: now)
+        let color = usesMutedStyle
+            ? Theme.muted
+            : Theme.pace(evaluation.status)
         let fraction = max(
             0,
             min(1, window.remainingPercent / 100 * trimScale)
@@ -420,12 +428,12 @@ private struct UsageWindowCard: View {
                 Text("\(Int(window.remainingPercent.rounded()))%")
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Theme.fg)
+                    .foregroundStyle(usesMutedStyle ? Theme.fg2 : Theme.fg)
             }
 
             QuotaBar(
                 fraction: fraction,
-                color: Theme.pace(evaluation.status)
+                color: color
             )
 
             resetRow
